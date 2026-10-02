@@ -1,0 +1,28 @@
+# Environments 
+venv/
+env/
+.venv/
+
+# Secrets & Environment Variables 
+.env
+
+# Python Cache Files 
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Testing Cache
+.pytest_cache/
+
+# OS Generated Files
+.DS_Store
+Thumbs.db
+
+# Editor Directories
+.vscode/
+.idea/.env
+venv/
+__pycache__/
+.env
+venv/
+__pycache__/
