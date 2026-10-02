@@ -1,0 +1,8 @@
+streamlit
+requests
+langchain
+langchain-google-genai
+langgraph
+pydantic
+pyyaml
+python-dotenv
