@@ -18,7 +18,7 @@ st.divider()
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "session_id" not in st.session_state:
-    st.session_state.session_id = "session_002"
+    st.session_state.session_id = "session_005"
 
 
 for msg in st.session_state.messages:
