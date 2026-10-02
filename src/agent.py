@@ -20,7 +20,7 @@ from src.weather import get_weather_for_location
 
 load_dotenv()
 
-MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
 
 book = load_policies("policies")
 llm = ChatGoogleGenerativeAI(model=MODEL_NAME, temperature=0, max_retries=0)
