@@ -300,16 +300,17 @@ python eval.py
 
 ### Test Suite Overview
 
-| # | Test Scenario | Expected Outcome / SOP | Architectural Guarantee |
-| --- | --- | --- | --- |
-| **1** | Two-wheeler in rain | `TRAV-2W-RAIN-01` (Do Not Recommend) | **Exact Match:** Fires precise environmental rules. |
-| **2** | Muggy outdoor picnic | `FUZZY-PICNIC-MUGGY-01` (Caution) | **Fuzzy Logic:** Handles multi-metric comfort bands. |
-| **3** | Regional rain system | `HAZ-REGIONAL-SYSTEM-01` (Lead Rule) | **Synoptic Precedence:** Macro hazards override activity. |
-| **4** | Uncovered activity | `BASE-NO-COVERAGE` | **Honest Fallback:** Avoids hallucinating guidance. |
-| **5** | Missing weather data | `BASE-INSUFFICIENT-DATA` | **Fail-Safe:** Halts safely on API data failure. |
-| **6** | Adversarial override | Deterministic Isolation | **Engine Integrity:** Prevents prompt injection bypassing. |
-| **7** | Elderly walking in heat | `VULN-ELDERLY-HEAT-01` (Do Not Recommend) | **Dynamic Adaptation:** Tightens thresholds for vulnerability. |
-| **8** | Dog walking with pets | `VULN-PET-HEAT-01` (Allow with Limit) | **Granular Binding:** Enforces niche multi-parameter rules. |
+| #     | Test Scenario                              | Expected Outcome / SOP                           | Architectural Guarantee                                                                                                                                        |
+| ----- | ------------------------------------------ | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **1** | Two-wheeler in rain                        | `TRAV-2W-RAIN-01` (Do Not Recommend)             | **Exact Match:** Fires precise environmental rules.                                                                                                            |
+| **2** | Muggy outdoor picnic                       | `FUZZY-PICNIC-MUGGY-01` (Caution)                | **Composite Logic:** Handles multi-metric comfort conditions.                                                                                                  |
+| **3** | Regional rain system                       | `HAZ-REGIONAL-SYSTEM-01` (Lead Rule)             | **Synoptic Precedence:** Macro hazards take precedence over activity-specific rules.                                                                           |
+| **4** | Uncovered activity                         | `BASE-NO-COVERAGE`                               | **Honest Fallback:** Avoids inventing unsupported guidance.                                                                                                    |
+| **5** | Missing weather data                       | `BASE-INSUFFICIENT-DATA`                         | **Fail-Safe:** Handles incomplete weather data without making a safety decision.                                                                               |
+| **6** | Paraphrased intents + adversarial override | Deterministic policy decision remains unchanged  | **Engine Integrity:** Natural-language variations are separated from deterministic policy evaluation, preventing prompt injection from bypassing safety rules. |
+| **7** | Elderly walking in heat                    | `VULN-ELDERLY-HEAT-01` (Do Not Recommend)        | **Dynamic Adaptation:** Applies stricter safety rules for vulnerable users.                                                                                    |
+| **8** | Dog walking with pets                      | `VULN-PET-HEAT-01` (Allow with Limit)            | **Granular Binding:** Enforces activity- and modifier-specific safety rules.                                                                                   |
+| **9** | Live weather API grounding                 | Decision and SOP citation based on live API data | **Live Data Grounding:** Evaluates real weather values without hardcoding or fabricating severe conditions.                                                    |
 
 ---
 
