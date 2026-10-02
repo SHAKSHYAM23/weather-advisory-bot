@@ -44,6 +44,10 @@ Natural Language Response
 * **Frontend Interface:** Streamlit
 * **Architecture:** Python 3, Object-Oriented Policy Engine, YAML configuration files
 
+# 🚀 Live Demo
+
+[Open the Weather Safety Advisory Agent](https://shakshyamproject.streamlit.app/)
+
 ---
 ---
 
