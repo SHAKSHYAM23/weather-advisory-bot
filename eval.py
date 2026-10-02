@@ -56,8 +56,23 @@ def run_tests():
 
     assert dec6.decision == "DO_NOT_RECOMMEND"
     print("PASS: Case 6 - Adversarial attempt cannot alter deterministic decision layer.")
+    # CASE 7: Vulnerable Group Context Modifier (Elderly Heat Restriction)
+    # Testing that modifiers dynamically restrict safety for vulnerable populations
+    w7 = {"temperature": 32.0, "precipitation": 0.0, "wind_speed": 5.0}
+    dec7 = evaluate(book, "walking", ["elderly"], bin_metrics(book, w7))
+    assert dec7.decision == "DO_NOT_RECOMMEND"
+    assert "VULN-ELDERLY-HEAT-01" in dec7.citations
+    print("PASS: Case 7 - Context modifier correctly triggered strict elderly heat restriction.")
 
-    print("\nAll 6 test cases passed successfully.")
+    # CASE 8: Activity + Pet Modifier Rule Binding (Dog Walking in Heat)
+    # Testing that specific activity and pet modifier bindings trigger pavement safety advice
+    w8 = {"temperature": 30.0, "precipitation": 0.0, "wind_speed": 5.0}
+    dec8 = evaluate(book, "dog_walking", ["pets"], bin_metrics(book, w8))
+    assert dec8.decision == "ALLOW_WITH_LIMIT"
+    assert "VULN-PET-HEAT-01" in dec8.citations
+    print("PASS: Case 8 - Pet modifier successfully restricted dog walking due to pavement heat.")
+
+    print("\nAll 8 test cases passed successfully.")
 
 if __name__ == "__main__":
     run_tests()
