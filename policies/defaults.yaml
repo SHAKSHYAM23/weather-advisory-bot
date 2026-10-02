@@ -1,0 +1,19 @@
+
+severity_order:
+  - RECOMMEND
+  - ALLOW_WITH_CAUTION
+  - ALLOW_WITH_LIMIT
+  - DO_NOT_RECOMMEND
+
+baseline_sops:
+  BASE-CLEAR:
+    id: "BASE-CLEAR"
+    text: "Conditions are fully evaluated and clear for this activity. Follow standard everyday precautions."
+
+  BASE-NO-COVERAGE:
+    id: "BASE-NO-COVERAGE"
+    text: "We currently do not have specific safety guidance for this activity or condition combination."
+
+  BASE-INSUFFICIENT-DATA:
+    id: "BASE-INSUFFICIENT-DATA"
+    text: "Unable to retrieve reliable weather data for this location. We cannot make a safety recommendation."

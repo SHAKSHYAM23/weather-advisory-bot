@@ -1,0 +1,23 @@
+category: hazards
+rules:
+  - id: HAZ-REGIONAL-SYSTEM-01
+    decision: DO_NOT_RECOMMEND
+    advice: "A well-marked low-pressure system is actively impacting this region with intense rainfall. Avoid non-essential outdoor movements regardless of activity type."
+    applies_to:
+      any: true
+    when:
+      - metric: regional_rain_system
+        in: [ACTIVE]
+      - metric: precipitation
+        in: [MODERATE, HEAVY, EXTREME]
+    lead: true 
+
+  - id: HAZ-THUNDERSTORM-01
+    decision: DO_NOT_RECOMMEND
+    advice: "Severe thunderstorm activity and lightning hazard detected. Seek substantial indoor shelter immediately."
+    applies_to:
+      any: true
+    when:
+      - metric: thunderstorm_active
+        in: [ACTIVE]
+    lead: true

@@ -1,0 +1,37 @@
+category: travel
+rules:
+  - id: TRAV-2W-RAIN-01
+    decision: DO_NOT_RECOMMEND
+    advice: "Moderate to heavy rain creates acute skidding risks and severe visibility reduction for two-wheelers. Use four-wheeled or public transport."
+    applies_to:
+      activities: [two_wheeler]
+    when:
+      - metric: precipitation
+        in: [MODERATE, HEAVY, EXTREME]
+
+  - id: TRAV-2W-WIND-01
+    decision: DO_NOT_RECOMMEND
+    advice: "Strong crosswinds threaten two-wheeler balance and stability. Postpone travel or switch to an enclosed vehicle."
+    applies_to:
+      activities: [two_wheeler]
+    when:
+      - metric: wind_speed
+        in: [STRONG, EXTREME]
+
+  - id: TRAV-CAR-WIND-01
+    decision: ALLOW_WITH_CAUTION
+    advice: "Strong winds detected. Maintain a firm grip on the steering wheel and reduce highway speeds, especially on open bridges."
+    applies_to:
+      activities: [driving]
+    when:
+      - metric: wind_speed
+        in: [STRONG]
+
+  - id: TRAV-WALK-HEAT-01
+    decision: ALLOW_WITH_LIMIT
+    advice: "High heat conditions during walking commute. Walk at an easy pace, stay in tree cover/shade, and carry water."
+    applies_to:
+      activities: [walking_commute]
+    when:
+      - metric: temperature
+        in: [HOT, EXTREME_HEAT]

@@ -1,0 +1,31 @@
+category: leisure
+rules:
+  - id: FUZZY-PICNIC-MUGGY-01
+    decision: ALLOW_WITH_CAUTION
+    advice: "No active rain, but high humidity and low wind make it muggy and still. Expect high mosquito activity; pack repellent and cold refreshments."
+    applies_to:
+      activities: [picnic]
+    when:
+      - metric: precipitation
+        in: [NONE]
+      - metric: temperature
+        in: [HOT]
+      - metric: humidity
+        in: [MUGGY, OPPRESSIVE]
+      - metric: wind_speed
+        in: [LIGHT]
+    fuzzy: true
+
+  - id: FUZZY-DINING-CHILLY-01
+    decision: ALLOW_WITH_LIMIT
+    advice: "Dry conditions, but brisk winds coupled with cool air create uncomfortable chill when seated. Choose heated patio seating or move indoors."
+    applies_to:
+      activities: [outdoor_dining]
+    when:
+      - metric: precipitation
+        in: [NONE]
+      - metric: temperature
+        in: [COLD]
+      - metric: wind_speed
+        in: [MODERATE, STRONG]
+    fuzzy: true

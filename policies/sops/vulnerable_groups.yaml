@@ -1,0 +1,31 @@
+category: vulnerable_groups
+rules:
+  - id: VULN-CHILD-UV-01
+    decision: ALLOW_WITH_LIMIT
+    advice: "Children's skin burns significantly faster. Limit direct sun exposure to under 30 minutes and require protective hats."
+    applies_to:
+      categories: [exercise, leisure]
+      modifiers: [children]
+    when:
+      - metric: uv_index
+        in: [VERY_HIGH, EXTREME]
+
+  - id: VULN-ELDERLY-HEAT-01
+    decision: DO_NOT_RECOMMEND
+    advice: "Older adults have impaired heat dissipation capacity. Outdoor exertion under hot weather is not advised."
+    applies_to:
+      any: true
+      modifiers: [elderly]
+    when:
+      - metric: temperature
+        in: [HOT, EXTREME_HEAT]
+
+  - id: VULN-PET-HEAT-01
+    decision: ALLOW_WITH_LIMIT
+    advice: "Pavement absorbs radiant heat and burns dog paws. Walk only on grassy surfaces and limit duration."
+    applies_to:
+      activities: [dog_walking, walking]
+      modifiers: [pets]
+    when:
+      - metric: temperature
+        in: [HOT, EXTREME_HEAT]

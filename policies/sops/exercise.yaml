@@ -1,0 +1,48 @@
+category: exercise
+rules:
+  - id: EXER-CYCLE-WIND-01
+    decision: ALLOW_WITH_CAUTION
+    advice: "Moderate wind resistance. Plan routes heading into the wind early to preserve energy on the return trip."
+    applies_to:
+      activities: [cycling, cycling_commute]
+    when:
+      - metric: wind_speed
+        in: [MODERATE]
+
+  - id: EXER-CYCLE-WIND-02
+    decision: DO_NOT_RECOMMEND
+    advice: "High winds create severe control hazards for bicycles on traffic routes. Move workouts indoors."
+    applies_to:
+      activities: [cycling, cycling_commute]
+    when:
+      - metric: wind_speed
+        in: [STRONG, EXTREME]
+
+  - id: EXER-RUN-HEAT-01
+    decision: ALLOW_WITH_LIMIT
+    advice: "Elevated temperature and humidity increase thermal strain. Reduce training volume by 50% and avoid midday hours."
+    applies_to:
+      activities: [running, outdoor_sports]
+    when:
+      - metric: temperature
+        in: [HOT]
+      - metric: humidity
+        in: [MUGGY, OPPRESSIVE]
+
+  - id: EXER-RUN-HEAT-02
+    decision: DO_NOT_RECOMMEND
+    advice: "Extreme heat creates severe heat stroke risk during intense cardio. Outdoor running is not recommended."
+    applies_to:
+      activities: [running, outdoor_sports]
+    when:
+      - metric: temperature
+        in: [EXTREME_HEAT]
+
+  - id: EXER-UV-HIGH-01
+    decision: ALLOW_WITH_CAUTION
+    advice: "High UV radiation. Apply broad-spectrum SPF 30+ sunscreen, wear UV-blocking sunglasses, and seek shade."
+    applies_to:
+      categories: [exercise]
+    when:
+      - metric: uv_index
+        in: [HIGH, VERY_HIGH]

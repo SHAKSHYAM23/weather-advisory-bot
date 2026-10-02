@@ -1,0 +1,47 @@
+
+categories:
+  travel:
+    description: "Transportation and commuting"
+    activities:
+      - id: driving
+        name: "Car or Enclosed Vehicle"
+      - id: two_wheeler
+        name: "Motorcycle or Scooter"
+      - id: walking_commute
+        name: "Walking Commute"
+      - id: cycling_commute
+        name: "Bicycle Commute"
+
+  exercise:
+    description: "Physical outdoor exertion"
+    activities:
+      - id: cycling
+        name: "Recreational Cycling"
+      - id: running
+        name: "Running or Jogging"
+      - id: walking
+        name: "Fitness Walking"
+      - id: outdoor_sports
+        name: "Team or Field Sports"
+
+  leisure:
+    description: "Low-exertion tasks and subjective activities"
+    activities:
+      - id: picnic
+        name: "Outdoor Picnic"
+      - id: outdoor_dining
+        name: "Patio / Outdoor Dining"
+      - id: dog_walking
+        name: "Dog Walking"
+      - id: laundry
+        name: "Drying Laundry Outdoors"
+
+context_modifiers:
+  description: "Vulnerable groups requiring stricter safety thresholds"
+  groups:
+    - id: children
+      name: "Infants and Children"
+    - id: elderly
+      name: "Seniors and Older Adults"
+    - id: pets
+      name: "Domestic Pets"

@@ -1,0 +1,73 @@
+
+metrics:
+  temperature:
+    unit: "celsius"
+    bins:
+      - from: -50.0
+        level: VERY_COLD
+      - from: 5.0
+        level: COLD
+      - from: 16.0
+        level: COMFORTABLE
+      - from: 28.0
+        level: HOT
+      - from: 38.0
+        level: EXTREME_HEAT
+
+  precipitation:
+    unit: "mm"
+    bins:
+      - from: 0.0
+        level: NONE
+      - from: 0.1
+        level: LIGHT
+      - from: 2.5
+        level: MODERATE
+      - from: 7.5
+        level: HEAVY
+      - from: 30.0
+        level: EXTREME
+
+  wind_speed:
+    unit: "km/h"
+    bins:
+      - from: 0.0
+        level: LIGHT
+      - from: 20.0
+        level: MODERATE
+      - from: 40.0
+        level: STRONG
+      - from: 60.0
+        level: EXTREME
+
+  uv_index:
+    unit: "index"
+    bins:
+      - from: 0.0
+        level: LOW
+      - from: 3.0
+        level: MODERATE
+      - from: 6.0
+        level: HIGH
+      - from: 8.0
+        level: VERY_HIGH
+      - from: 11.0
+        level: EXTREME
+
+  humidity:
+    unit: "percent"
+    bins:
+      - from: 0.0
+        level: DRY
+      - from: 35.0
+        level: COMFORTABLE
+      - from: 70.0
+        level: MUGGY
+      - from: 85.0
+        level: OPPRESSIVE
+
+flags:
+  thunderstorm_active:
+    description: "Active convective storm or lightning alert"
+  regional_rain_system:
+    description: "Synoptic low-pressure system or depression flagged by meteorological bureau"
