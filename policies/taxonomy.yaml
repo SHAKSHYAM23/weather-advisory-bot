@@ -1,40 +1,51 @@
-
 categories:
   travel:
     description: "Transportation and commuting"
     activities:
       - id: driving
         name: "Car or Enclosed Vehicle"
+        synonyms: [drive, car, by car]
       - id: two_wheeler
         name: "Motorcycle or Scooter"
+        synonyms: [motorcycle, motorbike, scooter, bike, riding]
       - id: walking_commute
         name: "Walking Commute"
+        synonyms: [walk to work, walk to office]
       - id: cycling_commute
         name: "Bicycle Commute"
+        synonyms: [cycle to work, bicycle to work, cycling to work]
 
   exercise:
     description: "Physical outdoor exertion"
     activities:
       - id: cycling
         name: "Recreational Cycling"
+        synonyms: [cycle, bicycle, cycling]
       - id: running
         name: "Running or Jogging"
+        synonyms: [jogging, jog, go for a run]
       - id: walking
         name: "Fitness Walking"
+        synonyms: [walk, stroll, go for a walk]
       - id: outdoor_sports
         name: "Team or Field Sports"
+        synonyms: [cricket, football, soccer]
 
   leisure:
     description: "Low-exertion tasks and subjective activities"
     activities:
       - id: picnic
         name: "Outdoor Picnic"
+        synonyms: [picnic]
       - id: outdoor_dining
         name: "Patio / Outdoor Dining"
+        synonyms: [eat outside, dine outside, patio]
       - id: dog_walking
         name: "Dog Walking"
+        synonyms: [walk my dog, walk the dog, dog walk]
       - id: laundry
         name: "Drying Laundry Outdoors"
+        synonyms: [dry clothes, hang laundry]
 
 context_modifiers:
   description: "Vulnerable groups requiring stricter safety thresholds"

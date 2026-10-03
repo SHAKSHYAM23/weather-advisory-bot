@@ -1,3 +1,5 @@
+import uuid
+
 import streamlit as st
 from src.agent import run_weather_agent
 
@@ -12,13 +14,24 @@ Before you step out, let's check what the skies have in store. Whether you're pl
 """)
 
 st.caption("Assignment by Shakshyam Pandey • shakshyampandey23@gmail.com")
-st.divider()
 
 
+def new_chat():
+    """Fresh conversation: new random session id => the agent starts with empty memory."""
+    st.session_state.messages = []
+    st.session_state.session_id = str(uuid.uuid4())
+
+
+# One random session id per browser session. A page refresh or a new visitor gets a new
+# st.session_state, hence a new id and a clean agent memory. Within one tab it stays the same,
+# so the agent remembers city / activity / who is coming / time while you keep chatting.
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "session_id" not in st.session_state:
-    st.session_state.session_id = "session_005"
+    st.session_state.session_id = str(uuid.uuid4())
+
+st.button("🔄 New chat", on_click=new_chat)
+st.divider()
 
 
 for msg in st.session_state.messages:
@@ -34,24 +47,20 @@ if prompt := st.chat_input("E.g., 'Can I cycle in Bhopal today?' or 'Is it safe 
     with st.chat_message("assistant"):
         with st.spinner("Checking current conditions and safety policies..."):
             response = run_weather_agent(prompt, st.session_state.session_id)
-            
-           
+
             raw_ans = response["answer"]
             if isinstance(raw_ans, list):
                 final_text = raw_ans[0].get("text", str(raw_ans))
             else:
                 final_text = str(raw_ans)
 
-         
             citations = response.get("citations")
             if citations:
                 final_text += f"\n\n*Policy Citations: {', '.join(citations)}*"
-                
-    
-            st.markdown(final_text)
 
-  
+        st.markdown(final_text)
+
     st.session_state.messages.append({
-        "role": "assistant", 
+        "role": "assistant",
         "content": final_text
     })

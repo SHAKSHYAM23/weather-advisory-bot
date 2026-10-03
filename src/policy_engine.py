@@ -1,17 +1,13 @@
-
 import math
 from typing import Any
 
-
 from src.engine_types import Decision, PolicyBook, FiredRule, PolicyError, Rule
 
-
-
 UNKNOWN = "UNKNOWN"
-MATCHED = "MATCHED"                      
-COVERED_CLEAR = "COVERED_CLEAR"          
-NO_COVERAGE = "NO_COVERAGE"              
-INSUFFICIENT_DATA = "INSUFFICIENT_DATA"  
+MATCHED = "MATCHED"
+COVERED_CLEAR = "COVERED_CLEAR"
+NO_COVERAGE = "NO_COVERAGE"
+INSUFFICIENT_DATA = "INSUFFICIENT_DATA"
 
 
 def bin_value(metric_def: dict[str, Any], raw: Any) -> str:
@@ -28,6 +24,7 @@ def bin_value(metric_def: dict[str, Any], raw: Any) -> str:
             level = b["level"]
     return level
 
+
 def bin_metrics(book: PolicyBook, raw: dict[str, Any]) -> dict[str, str]:
     """Every metric in the book gets a level; metrics absent from `raw` are UNKNOWN."""
     return {name: bin_value(m, raw.get(name)) for name, m in book.metrics.items()}
@@ -38,10 +35,16 @@ def _applies(rule: Rule, activity_id: str, category: str, modifiers: frozenset[s
         return False
     return rule.universal or activity_id in rule.activities or category in rule.categories
 
-def _gives_coverage(rule: Rule, activity_id: str, modifiers: frozenset[str]) -> bool:
+
+def _gives_coverage(rule: Rule, activity_id: str, category: str, modifiers: frozenset[str]) -> bool:
+    """A non-fuzzy rule scoped to this activity, its category, or an active modifier means the
+    activity is 'covered' - so clear weather yields BASE-CLEAR instead of BASE-NO-COVERAGE."""
     if rule.fuzzy:
         return False
-    return activity_id in rule.activities or bool(rule.modifiers & modifiers)
+    return (activity_id in rule.activities
+            or category in rule.categories
+            or bool(rule.modifiers & modifiers))
+
 
 def evaluate(book: PolicyBook, activity_id: str, modifiers: list[str] | set[str] | frozenset[str],
              levels: dict[str, str]) -> Decision:
@@ -59,13 +62,13 @@ def evaluate(book: PolicyBook, activity_id: str, modifiers: list[str] | set[str]
     for rule in book.rules:
         if not _applies(rule, activity_id, category, mods):
             continue
-        covered = covered or _gives_coverage(rule, activity_id, mods)
+        covered = covered or _gives_coverage(rule, activity_id, category, mods)
         results = [(m, levels.get(m, UNKNOWN), allowed) for m, allowed in rule.when]
         if any(lvl != UNKNOWN and lvl not in allowed for _, lvl, allowed in results):
-            continue                              
+            continue
         unknown = [m for m, lvl, _ in results if lvl == UNKNOWN]
         if unknown:
-            unevaluated.update(unknown)               
+            unevaluated.update(unknown)
             continue
         fired.append(FiredRule(rule.id, rule.category, rule.decision, rule.advice, rule.lead,
                                {m: lvl for m, lvl, _ in results}))

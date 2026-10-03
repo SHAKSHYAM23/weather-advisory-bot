@@ -2,53 +2,55 @@
 
 A weather safety agent should not treat every outdoor activity the same way.
 
-For example, a **moderate UV index may still be acceptable for someone travelling in an enclosed car, while the same condition can require additional precautions for someone walking outdoors**. Similarly, high wind can have very different implications for a cyclist, a two-wheeler rider, or someone travelling in a car.
+For example, a moderate UV index may still be acceptable for someone travelling in an enclosed car, while the same condition can require additional precautions for someone walking outdoors. Similarly, high wind can have very different implications for a cyclist, a two-wheeler rider, or someone travelling in a car.
 
-This is the principle behind this implementation: **safety recommendations are determined by the combination of the user's activity, weather conditions, and relevant context — rather than by a single generic weather threshold.**
+This is the principle behind this implementation: safety recommendations are determined by the combination of the user's activity, weather conditions, and relevant context — rather than by a single generic weather threshold.
 
 ## 🧠 What Was Implemented
 
-The system goes beyond a basic weather-to-recommendation mapping by introducing a structured **policy and SOP framework**:
+The system goes beyond a basic weather-to-recommendation mapping by introducing a structured policy and SOP framework:
 
-* **`16 Core SOPs`**: Covering activity-specific, weather-specific, hazard, and vulnerability scenarios.
-* **`Activity Classification`**: Activities are organized into **`Travel`**, **`Exercise`**, and **`Leisure`** groups, allowing different rules to apply to different types of outdoor activities.
-* **`Vulnerability Modifiers`**: Supports **`children`**, **`elderly users`**, and **`pets`**, allowing the same environmental conditions to be evaluated differently based on context.
-* **`Weather Metric Binning`**: Continuous weather data is converted into defined **`severity bands`** for **`temperature`**, **`wind speed`**, **`humidity`**, **`precipitation`**, and **`UV index`** before policy evaluation.
-* **`Severity-Based Recommendations`**: The engine goes beyond a binary yes/no response with four levels: **`RECOMMEND`**, **`ALLOW_WITH_CAUTION`**, **`ALLOW_WITH_LIMIT`**, and **`DO_NOT_RECOMMEND`**.
-* **`Multi-SOP Evaluation`**: Multiple applicable SOPs can be evaluated together, with the policy engine resolving which conditions and rules determine the final recommendation.
-* **`Safe Fallbacks`**: Unsupported activity-condition combinations and insufficient weather data are handled explicitly instead of generating unsupported safety guidance.
-* **`8-Case Evaluation Suite`**: Tests direct rule matching, fuzzy/multi-condition scenarios, hazard precedence, vulnerable groups, missing data, unsupported coverage, and adversarial inputs.
+* **16 Core SOPs:** Covering activity-specific, weather-specific, hazard, and vulnerability scenarios.
+* **Activity Classification:** Activities are organized into Travel, Exercise, and Leisure groups, allowing different rules to apply to different types of outdoor activities.
+* **Vulnerability Modifiers:** Supports children, elderly users, and pets, allowing the same environmental conditions to be evaluated differently based on context.
+* **Weather Metric Binning:** Continuous weather data is converted into defined severity bands for temperature, wind speed, humidity, precipitation, and UV index before policy evaluation.
+* **Severity-Based Recommendations:** The engine goes beyond a binary yes/no response with four levels: `RECOMMEND`, `ALLOW_WITH_CAUTION`, `ALLOW_WITH_LIMIT`, and `DO_NOT_RECOMMEND`.
+* **Multi-SOP Evaluation:** Multiple applicable SOPs can be evaluated together, with the policy engine resolving which conditions and rules determine the final recommendation.
+* **Time-Aware Weather:** Current conditions are used for "now" requests, while appropriate hourly forecast data is used for requests such as tomorrow morning or this evening.
+* **Safe Fallbacks:** Unsupported activity-condition combinations and insufficient weather data are handled explicitly instead of generating unsupported safety guidance.
+* **Session Memory:** Conversation context such as city, activity, modifiers, and timing is preserved within a session using LangGraph checkpointing.
+* **9-Case Evaluation Suite:** Tests direct rule matching, paraphrased intent, multi-condition scenarios, hazard precedence, vulnerable groups, missing data, unsupported coverage, adversarial inputs, and live API grounding.
 
-At the core of the implementation is a strict separation between **understanding the user's request** and **making the safety decision**:
+At the core of the implementation is a strict separation between understanding the user's request and making the safety decision:
 
 ```text
 Natural Language
-↓
+       ↓
 Intent & Context
-↓
+       ↓
 Live Weather
-↓
+       ↓
 Deterministic SOP Evaluation
-↓
+       ↓
 Severity-Based Decision
-↓
+       ↓
 Natural Language Response
-
 ```
+
 ---
----
+
 # 🚀 Tech Stack
+
 * **Orchestration & State Management:** LangGraph, LangChain
-* **Large Language Model (LLM):** Google Gemini (`gemini-3.8-flash`) via Gemini API
+* **Large Language Model (LLM):** Google Gemini via Gemini API
 * **Weather Data Provider:** Open-Meteo API
 * **Frontend Interface:** Streamlit
 * **Architecture:** Python 3, Object-Oriented Policy Engine, YAML configuration files
 
 # 🚀 Live Demo
 
-[Open the Weather Safety Advisory Agent](https://shakshyamproject.streamlit.app/)
+Open the Weather Safety Advisory Agent using the live deployment linked in the project repository.
 
----
 ---
 
 # 🧠 AI Agent Architecture
@@ -61,269 +63,593 @@ The safety decision remains grounded in deterministic, version-controlled YAML S
 
 ```mermaid
 flowchart TD
+
     START([START]):::terminal --> classify["classify_intent_node"]:::agent
+
     classify --> routeIntent{"route_intent"}:::router
 
-    routeIntent -- "Missing info" --> clarify["ask_clarification_node"]:::agent
+    routeIntent -- "Missing info / Off-topic" --> clarify["ask_clarification_node"]:::agent
+
     clarify --> END1([END]):::terminal
 
     routeIntent -- "Info available" --> weather["fetch_weather_node"]:::agent
+
     weather --> routeWeather{"route_weather"}:::router
 
     routeWeather -- "API failed" --> fallback["handle_api_failure_node"]:::agent
+
     fallback --> END2([END]):::terminal
 
     routeWeather -- "API success" --> policy[["evaluate_policy_node<br/>Deterministic Policy Engine"]]:::policy
+
     policy --> respond["generate_response_node"]:::agent
+
     respond --> END3([END]):::terminal
 
     classDef terminal fill:#1f2937,stroke:#111827,color:#ffffff
     classDef agent fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
     classDef router fill:#fef3c7,stroke:#d97706,color:#78350f
-    classDef policy fill:#dcfce7,stroke:#16a34a,color:#14532d,stroke-width:3px
+    classDef policy fill:#dcfce7,stroke:#16a34a,color:#14532a,stroke-width:3px
 ```
-
-
 
 ### Agent State
 
 `AgentState` is the single shared object passed between nodes:
 
 ```text
-messages 
+messages
 city
 activity
 modifiers
-weather
+day
+period
+off_topic
 clarification_needed
 api_failed
+weather
+decision_payload
 decision_summary
 citations
 ```
 
-
-
 ### Node Responsibilities
 
-- **`classify_intent_node`**: Uses Gemini via LangChain to extract `city`, `activity`, and `modifiers` (children, elderly, pets). Applies **Smart Merge** to preserve previously extracted information across turns.
-- **`ask_clarification_node`**: Requests missing information (city or activity).
-- **`fetch_weather_node`**: Retrieves live weather and stores it in `AgentState`.
-- **`evaluate_policy_node`**: Runs the **deterministic policy engine** against weather, activity, modifiers, metric bands, and YAML SOPs. **No LLM is involved in this decision.**
-- **`handle_api_failure_node`**: Returns a safe, controlled fallback when weather data is unavailable.
-- **`generate_response_node`**: Converts the policy decision into natural language. The LLM must preserve the decision and must not invent additional safety rules.
+* **`classify_intent_node`**: Uses Gemini via LangChain to extract `city`, `activity`, `modifiers`, `day`, and `period`. It preserves previously extracted valid information across turns using session state and applies deterministic fallback extraction when necessary. It also detects off-topic requests and determines whether clarification is required.
+* **`ask_clarification_node`**: Requests missing information such as city or activity instead of making an unsupported recommendation.
+* **`fetch_weather_node`**: Retrieves weather from Open-Meteo. Current weather is used for immediate requests, while hourly forecast data is used when the user asks about a future period such as tomorrow morning or this evening.
+* **`evaluate_policy_node`**: Runs the **deterministic policy engine** against weather, activity, modifiers, metric bands, and YAML SOPs. **No LLM is involved in this decision.**
+* **`handle_api_failure_node`**: Returns a safe, controlled fallback when the weather service fails or reliable weather data cannot be retrieved.
+* **`generate_response_node`**: Converts the policy decision into natural language. The LLM must preserve the deterministic decision and must not invent additional safety rules or weather values.
 
 ### Framework Responsibilities
 
-| Component | Role in This Project |
-| --- | --- |
-| **`LangChain`** | Gemini integration (`ChatGoogleGenerativeAI`), message types, intent extraction, response generation |
-| **`LangGraph`** | `StateGraph` orchestration, `AgentState`, nodes, conditional edges, `START`/`END` |
-| **`Policy Engine`** | Deterministic safety evaluation |
-| **`YAML SOPs`** | Version-controlled rules, thresholds, and recommendations |
-| **`Weather API`** | Live weather conditions |
-| **`MemorySaver`** | Per-`thread_id` conversation checkpointing |
+| Component           | Role in This Project                                                                                 |
+| ------------------- | ---------------------------------------------------------------------------------------------------- |
+| **`LangChain`**     | Gemini integration (`ChatGoogleGenerativeAI`), message types, intent extraction, response generation |
+| **`LangGraph`**     | `StateGraph` orchestration, `AgentState`, nodes, conditional edges, `START`/`END`                    |
+| **`Policy Engine`** | Deterministic safety evaluation                                                                      |
+| **`YAML SOPs`**     | Version-controlled rules, thresholds, and recommendations                                            |
+| **`Weather API`**   | Live current and forecast weather conditions                                                         |
+| **`MemorySaver`**   | Per-`thread_id` conversation checkpointing within the running application                            |
 
 ### Design Principle
 
 ```text
-User Input → LangChain + Gemini → Intent & Context → LangGraph Workflow
-→ Live Weather → Deterministic Policy Engine → Safety Decision
-→ LangChain + Gemini → Natural Language Response
+User Input
+    ↓
+LangChain + Gemini
+    ↓
+Intent & Context
+    ↓
+LangGraph Workflow
+    ↓
+Live Weather
+    ↓
+Deterministic Policy Engine
+    ↓
+Safety Decision
+    ↓
+LangChain + Gemini
+    ↓
+Natural Language Response
 ```
 
 **The LLM interprets and communicates; the policy engine decides.**
 
 ---
----
 
-# Weather & Activity Recommendation Engine
+# 🌦️ Weather & Activity Recommendation Engine
 
-This engine evaluates real-time weather metrics against safety thresholds to generate actionable recommendations for outdoor activities. Rather than mapping infinite individual activities, the system categorizes intents and applies specific safety rules (SOPs) based on environmental conditions and vulnerable groups.
+This engine evaluates weather metrics against safety thresholds to generate actionable recommendations for outdoor activities. Rather than mapping every individual activity independently, the system categorizes intents and applies specific safety rules based on environmental conditions and vulnerable groups.
 
 ---
 
 ## 1. System Taxonomy & Activities
 
-Activities are grouped into distinct categories to streamline rule application. 
+Activities are grouped into distinct categories to streamline rule application.
 
-| Category | Description | Supported Activities |
-| :--- | :--- | :--- |
-| **`Travel`** | Transportation and commuting | Car/Enclosed Vehicle (`driving`), Motorcycle/Scooter (`two_wheeler`), Walking Commute (`walking_commute`), Bicycle Commute (`cycling_commute`) |
-| **`Exercise`** | Physical outdoor exertion | Recreational Cycling (`cycling`), Running/Jogging (`running`), Fitness Walking (`walking`), Team/Field Sports (`outdoor_sports`) |
-| **`Leisure`** | Low-exertion tasks and subjective activities | Outdoor Picnic (`picnic`), Patio/Outdoor Dining (`outdoor_dining`), Dog Walking (`dog_walking`), Drying Laundry (`laundry`) |
+| Category       | Description                               | Supported Activities                                                                                                                           |
+| :------------- | :---------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`Travel`**   | Transportation and commuting              | Car/Enclosed Vehicle (`driving`), Motorcycle/Scooter (`two_wheeler`), Walking Commute (`walking_commute`), Bicycle Commute (`cycling_commute`) |
+| **`Exercise`** | Physical outdoor exertion                 | Recreational Cycling (`cycling`), Running/Jogging (`running`), Fitness Walking (`walking`), Team/Field Sports (`outdoor_sports`)               |
+| **`Leisure`**  | Low-exertion outdoor activities and tasks | Outdoor Picnic (`picnic`), Patio/Outdoor Dining (`outdoor_dining`), Dog Walking (`dog_walking`), Drying Laundry (`laundry`)                    |
 
-### Context Modifiers (Vulnerable Groups)
+### Context Modifiers
+
 The system evaluates specific vulnerability markers that deterministically tighten permissible safety thresholds:
+
 * **`Children` (`children`):** Infants and children.
 * **`Elderly` (`elderly`):** Seniors and older adults.
-* **`Pets `(`pets`):** Domestic pets.
+* **`Pets` (`pets`):** Domestic pets.
 
 ---
 
-## 2. Metric Binning (Thresholds)
+## 2. Metric Binning
 
-Raw continuous weather variables are processed through a `bin_metrics()` layer mapping floating-point data to deterministic safety bands. 
+Raw continuous weather variables are processed through a `bin_metrics()` layer that maps floating-point values into deterministic safety bands.
 
-<table width="100%">
-<tr>
-<td valign="top" width="33%" colspan="2">
+### Temperature
 
-<h3 align="center">🌡️ Temperature (°C)</h3>
+| Band           |     Range |
+| -------------- | --------: |
+| `VERY_COLD`    |     < 5°C |
+| `COLD`         |  5–15.9°C |
+| `COMFORTABLE`  | 16–27.9°C |
+| `HOT`          | 28–37.9°C |
+| `EXTREME_HEAT` |    ≥ 38°C |
 
-| Level | Range |
-| :--- | :--- |
-| 🟣 **VERY_COLD** | < 5.0 |
-| 🔵 **COLD** | 5.0 to 15.9 |
-| 🟢 **COMFORTABLE** | 16.0 to 27.9 |
-| 🟠 **HOT** | 28.0 to 37.9 |
-| 🔴 **EXTREME_HEAT** | ≥ 38.0 |
+### Wind Speed
 
-</td>
-<td valign="top" width="33%" colspan="2">
+| Band       |        Range |
+| ---------- | -----------: |
+| `LIGHT`    |  0–19.9 km/h |
+| `MODERATE` | 20–39.9 km/h |
+| `STRONG`   | 40–59.9 km/h |
+| `EXTREME`  |    ≥ 60 km/h |
 
-<h3 align="center">💨 Wind Speed (km/h)</h3>
+### Humidity
 
-| Level | Range |
-| :--- | :--- |
-| 🟢 **LIGHT** | 0.0 to 19.9 |
-| 🟡 **MODERATE** | 20.0 to 39.9 |
-| 🟠 **STRONG** | 40.0 to 59.9 |
-| 🔴 **EXTREME** | ≥ 60.0 |
+| Band          |    Range |
+| ------------- | -------: |
+| `DRY`         |  0–34.9% |
+| `COMFORTABLE` | 35–69.9% |
+| `MUGGY`       | 70–84.9% |
+| `OPPRESSIVE`  |    ≥ 85% |
 
-</td>
-<td valign="top" width="33%" colspan="2">
+### Precipitation
 
-<h3 align="center">💧 Humidity (%)</h3>
+| Band       |       Range |
+| ---------- | ----------: |
+| `NONE`     |        0 mm |
+| `LIGHT`    |  0.1–2.4 mm |
+| `MODERATE` |  2.5–7.4 mm |
+| `HEAVY`    | 7.5–29.9 mm |
+| `EXTREME`  |     ≥ 30 mm |
 
-| Level | Range |
-| :--- | :--- |
-| 🟤 **DRY** | 0.0 to 34.9 |
-| 🟢 **COMFORTABLE** | 35.0 to 69.9 |
-| 🟡 **MUGGY** | 70.0 to 84.9 |
-| 🔴 **OPPRESSIVE** | ≥ 85.0 |
+### UV Index
 
-</td>
-</tr>
-<tr>
-<td valign="top" width="50%" colspan="3">
-
-<h3 align="center">🌧️ Precipitation (mm)</h3>
-
-| Level | Range |
-| :--- | :--- |
-| ⚪ **NONE** | 0.0 |
-| 🔵 **LIGHT** | 0.1 to 2.4 |
-| 🟡 **MODERATE** | 2.5 to 7.4 |
-| 🟠 **HEAVY** | 7.5 to 29.9 |
-| 🔴 **EXTREME** | ≥ 30.0 |
-
-</td>
-<td valign="top" width="50%" colspan="3">
-
-<h3 align="center">☀️ UV Index</h3>
-
-| Level | Range |
-| :--- | :--- |
-| 🟢 **LOW** | 0.0 to 2.9 |
-| 🟡 **MODERATE** | 3.0 to 5.9 |
-| 🟠 **HIGH** | 6.0 to 7.9 |
-| 🔴 **VERY_HIGH** | 8.0 to 10.9 |
-| 🟣 **EXTREME** | ≥ 11.0 |
-
-</td>
-</tr>
-</table>
+| Band        |  Range |
+| ----------- | -----: |
+| `LOW`       |  0–2.9 |
+| `MODERATE`  |  3–5.9 |
+| `HIGH`      |  6–7.9 |
+| `VERY_HIGH` | 8–10.9 |
+| `EXTREME`   |   ≥ 11 |
 
 ---
 
-## 3. System Flags & Severity Levels
+## 3. Weather Flags & Severity Levels
 
 ### Weather Flags
-* **`thunderstorm_active`**: Active convective storm or lightning alert.
-* **`regional_rain_system`**: Synoptic low-pressure system or depression flagged by the meteorological bureau.
 
-### Severity Order (Lowest to Highest Risk)
+* **`thunderstorm_active`**: Indicates an active thunderstorm or lightning-related weather condition available from the weather data source.
+* **`regional_rain_system`**: Operational rainfall-system indicator used by the policy engine to represent broader rainfall hazards based on available weather data.
+
+These flags are evaluated by the deterministic policy engine and are not generated by the LLM.
+
+### Severity Order
+
+The policy engine uses four recommendation levels:
+
 1. `RECOMMEND`
 2. `ALLOW_WITH_CAUTION`
 3. `ALLOW_WITH_LIMIT`
 4. `DO_NOT_RECOMMEND`
 
 ---
+
+# 📋 4. Standard Operating Procedures (SOPs)
+
+The engine evaluates conditions against **16 foundational Standard Operating Procedures** across activity-specific, weather-specific, hazard, and vulnerability scenarios.
+
+### Core SOPs
+
+1. **Moderate Wind Cycling**
+2. **High Wind Cycling**
+3. **Elevated Heat Running**
+4. **Extreme Heat Running**
+5. **High UV Radiation**
+6. **Regional Rain Systems**
+7. **Severe Thunderstorms & Lightning**
+8. **Muggy Leisure Conditions**
+9. **Chilly Dining Conditions**
+10. **Two-Wheeler Rain Hazards**
+11. **Two-Wheeler Wind Hazards**
+12. **Driving Wind Cautions**
+13. **Walking Commute Heat**
+14. **Child UV Vulnerability**
+15. **Elderly Heat Vulnerability**
+16. **Pet Heat Vulnerability**
+
+### Baseline SOPs
+
+* **`BASE-CLEAR`**: Conditions are fully evaluated and no specific hazard rule is triggered for this activity. Follow standard everyday precautions.
+* **`BASE-NO-COVERAGE`**: The system does not currently have specific safety guidance for this activity or condition combination.
+* **`BASE-INSUFFICIENT-DATA`**: Reliable weather data could not be retrieved, so the system cannot make a safety recommendation.
+
 ---
-# 4. Standard Operating Procedures (SOPs)
 
-The engine evaluates conditions against 16 foundational Standard Operating Procedures across diverse activities and vulnerable groups, falling back to 3 baseline conditions when specific rules do not trigger.
+# 🔍 5. Policy Evaluation Flow
 
-### `The 16 Core Rules`
-1. **`Moderate Wind Cycling:`** Energy preservation and resistance planning against headwinds.
-2. **`High Wind Cycling:`** Control hazards and instability risks for bicycles on traffic routes.
-3. **`Elevated Heat Running:`** Thermal strain management and volume reduction for intense cardio.
-4. **`Extreme Heat Running:`** Severe heatstroke risks halting intense outdoor cardio.
-5. **`High UV Radiation:`** Sun protection requirements, SPF usage, and shade seeking.
-6. **`Regional Rain Systems:`** Synoptic override for well-marked low-pressure systems and intense rainfall.
-7. **`Severe Thunderstorms & Lightning:`** Immediate synoptic override requiring substantial indoor shelter.
-8. **`Muggy Leisure Conditions:`** Fuzzy logic for high humidity, low wind, and elevated mosquito activity.
-9. **`Chilly Dining Conditions:`** Fuzzy logic for wind chill discomfort during seated outdoor activities.
-10. **`Two-Wheeler Rain Hazards:`** Acute skidding risks and severe visibility reduction for bikes/scooters.
-11. **`Two-Wheeler Wind Hazards:`** Crosswind balance and stability threats halting two-wheeler transit.
-12. **`Driving Wind Cautions:`** Steering handling and speed reduction requirements for cars on open routes.
-13. **`Walking Commute Heat:`** Pacing, shade, and hydration protocols for high heat exposure.
-14. **`Child UV Vulnerability:`** Accelerated skin burn risks and strict direct sun exposure limits for children.
-15. **`Elderly Heat Vulnerability:`** Impaired heat dissipation risks halting outdoor exertion for older adults.
-16. **`Pet Heat Vulnerability:`** Radiant heat and pavement burn risks limiting dog walking surfaces and duration.
+The policy engine follows a deterministic evaluation pipeline:
 
-### Baseline SOPs (System Defaults)
-* **`BASE-CLEAR`**: Conditions are fully evaluated and clear for this activity. Follow standard everyday precautions.
-* **`BASE-NO-COVERAGE`**: We currently do not have specific safety guidance for this activity or condition combination.
-* **`BASE-INSUFFICIENT-DATA`**: Unable to retrieve reliable weather data for this location. We cannot make a safety recommendation.
----
----
-
-# 5. Evaluation & Test Suite
-
-The engine includes a robust test suite (`eval.py`) covering **8 core test cases** to prove deterministic execution, edge-case safety, and vulnerability management.
-
-Run the test harness via terminal:
-```bash
-python eval.py
-
-```markdown
-## 5. Evaluation & Test Suite
-
-The engine includes a robust test suite (`eval.py`) covering **8 core test cases** to prove deterministic execution, edge-case safety, and vulnerability management.
-
-Run the test harness via terminal:
-```bash
-python eval.py
-
+```text
+Live Weather
+     ↓
+Raw Weather Metrics
+     ↓
+Metric Binning
+     ↓
+Activity + Context
+     ↓
+Applicable SOP Matching
+     ↓
+Condition Evaluation
+     ↓
+Multiple SOP Resolution
+     ↓
+Final Severity
+     ↓
+Evidence + Policy Citations
 ```
 
-### Test Suite Overview
+The YAML files define **what the safety rules are**, while the Python policy engine defines **how those rules are loaded, interpreted, and evaluated**.
 
-| #     | Test Scenario                              | Expected Outcome / SOP                           | Architectural Guarantee                                                                                                                                        |
-| ----- | ------------------------------------------ | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **1** | Two-wheeler in rain                        | `TRAV-2W-RAIN-01` (Do Not Recommend)             | **Exact Match:** Fires precise environmental rules.                                                                                                            |
-| **2** | Muggy outdoor picnic                       | `FUZZY-PICNIC-MUGGY-01` (Caution)                | **Composite Logic:** Handles multi-metric comfort conditions.                                                                                                  |
-| **3** | Regional rain system                       | `HAZ-REGIONAL-SYSTEM-01` (Lead Rule)             | **Synoptic Precedence:** Macro hazards take precedence over activity-specific rules.                                                                           |
-| **4** | Uncovered activity                         | `BASE-NO-COVERAGE`                               | **Honest Fallback:** Avoids inventing unsupported guidance.                                                                                                    |
-| **5** | Missing weather data                       | `BASE-INSUFFICIENT-DATA`                         | **Fail-Safe:** Handles incomplete weather data without making a safety decision.                                                                               |
-| **6** | Paraphrased intents + adversarial override | Deterministic policy decision remains unchanged  | **Engine Integrity:** Natural-language variations are separated from deterministic policy evaluation, preventing prompt injection from bypassing safety rules. |
-| **7** | Elderly walking in heat                    | `VULN-ELDERLY-HEAT-01` (Do Not Recommend)        | **Dynamic Adaptation:** Applies stricter safety rules for vulnerable users.                                                                                    |
-| **8** | Dog walking with pets                      | `VULN-PET-HEAT-01` (Allow with Limit)            | **Granular Binding:** Enforces activity- and modifier-specific safety rules.                                                                                   |
-| **9** | Live weather API grounding                 | Decision and SOP citation based on live API data | **Live Data Grounding:** Evaluates real weather values without hardcoding or fabricating severe conditions.                                                    |
+This separation allows policies to be added or modified without changing the weather-fetching or LLM response-generation logic, provided the new SOP follows the existing policy schema and supported metrics.
 
 ---
 
-## 6. Conclusion
+# 🧪 6. Evaluation & Test Suite
 
-This Weather Safety Advisory Agent demonstrates a production-grade pattern for building reliable AI applications: **decoupling deterministic safety guardrails from probabilistic language models**. By separating strict policy evaluation, binning layers, and vulnerability modifiers from the natural language communication layer, the system ensures that safety-critical decisions are always predictable, auditable, and immune to prompt manipulation.
+The evaluation suite contains **9 cases** covering direct matching, paraphrased intent, multi-condition reasoning, hazard precedence, vulnerable groups, unsupported scenarios, API failures, adversarial inputs, and live weather grounding.
+
+| #     | Test Scenario                              | Expected Outcome / SOP                           | Architectural Guarantee                                                                                                                                                       |
+| ----- | ------------------------------------------ | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **1** | Two-wheeler in rain                        | `TRAV-2W-RAIN-01` (`DO_NOT_RECOMMEND`)           | **Exact Match:** Fires precise environmental rules.                                                                                                                           |
+| **2** | Muggy outdoor picnic                       | `FUZZY-PICNIC-MUGGY-01` (`ALLOW_WITH_CAUTION`)   | **Composite Logic:** Handles multi-metric comfort conditions.                                                                                                                 |
+| **3** | Regional rain system                       | `HAZ-REGIONAL-SYSTEM-01` (Lead Rule)             | **Hazard Precedence:** Broader weather hazards can take precedence over activity-specific rules.                                                                              |
+| **4** | Uncovered activity                         | `BASE-NO-COVERAGE`                               | **Honest Fallback:** Avoids inventing unsupported guidance.                                                                                                                   |
+| **5** | Missing weather data                       | `BASE-INSUFFICIENT-DATA`                         | **Fail-Safe:** Handles incomplete or unavailable weather data without making a safety decision.                                                                               |
+| **6** | Paraphrased intents + adversarial override | Deterministic policy decision remains unchanged  | **Engine Integrity:** Natural-language variations are separated from deterministic policy evaluation, preventing prompt injection from directly changing the safety decision. |
+| **7** | Elderly walking in heat                    | `VULN-ELDERLY-HEAT-01` (`DO_NOT_RECOMMEND`)      | **Dynamic Adaptation:** Applies stricter safety rules for vulnerable users.                                                                                                   |
+| **8** | Dog walking with pets                      | `VULN-PET-HEAT-01` (`ALLOW_WITH_LIMIT`)          | **Granular Binding:** Enforces activity- and modifier-specific safety rules.                                                                                                  |
+| **9** | Live weather API grounding                 | Decision and SOP citation based on live API data | **Live Data Grounding:** Evaluates real weather values without hardcoding or fabricating severe conditions.                                                                   |
+
+### Evaluation Requirements Covered
+
+The evaluation suite checks:
+
+* Clear SOP matching
+* Paraphrased user intent
+* Fuzzy and multi-condition scenarios
+* Multiple applicable SOPs
+* Hazard precedence
+* Vulnerable-user modifiers
+* No-SOP scenarios
+* Weather API failure
+* Adversarial prompt input
+* Live API weather grounding
+
+The live-weather case uses actual API data at evaluation time rather than hardcoding a specific historical weather event.
 
 ---
+
+# 🔐 7. Safety & Reliability Principles
+
+### Deterministic Decision Boundary
+
+The LLM does not decide whether an activity is safe.
+
+```text
+LLM
+ ├── Understand user intent
+ └── Communicate result
+
+Policy Engine
+ ├── Interpret weather metrics
+ ├── Match SOPs
+ ├── Evaluate conditions
+ └── Produce final decision
+```
+
+This prevents the language model from directly overriding deterministic safety rules.
+
+### No Unsupported Advice
+
+If no applicable SOP exists, the system explicitly returns:
+
+```text
+BASE-NO-COVERAGE
+```
+
+It does not invent generic safety advice outside the policy framework.
+
+### No Fabricated Weather
+
+Weather values reported to the user originate from the weather provider. The LLM is instructed not to estimate, recall, or fabricate weather numbers.
+
+### Explicit API Failure Handling
+
+If the location cannot be resolved or the weather service is unavailable, the system returns:
+
+```text
+BASE-INSUFFICIENT-DATA
+```
+
+rather than producing a weather-based recommendation without reliable data.
+
+### Policy Traceability
+
+Each recommendation can be traced back to the SOPs that were evaluated, including:
+
+* SOP ID
+* Decision level
+* Advice
+* Supporting evidence
+* Weather values used
+* Policy citations
+
 ---
 
-### 👨‍💻 Author
+# 🧩 8. Extensibility
 
-**Shakshyam Pandey**  
-* B.Tech in Information Technology (Final Year)  
-* Indian Institute of Information Technology (IIIT) Bhopal  
-* [GitHub](https://github.com/SHAKSHYAM23) | [LinkedIn](https://www.linkedin.com/in/shakshyam)
+One of the main design goals is to keep policy logic separate from application control flow.
+
+For example, adding a new SOP can follow the existing YAML schema:
+
+```text
+New SOP
+   ↓
+policies/sops/*.yaml
+   ↓
+Policy Loader
+   ↓
+Policy Engine
+   ↓
+Existing LangGraph Workflow
+```
+
+The weather-fetching layer and LLM response layer do not need to be rewritten simply because a new policy is introduced, as long as the SOP uses the existing schema and supported metrics.
+
+This also supports the live-review requirement of adding an additional SOP without modifying the core control-flow code.
+
+---
+
+# 🛠️ 9. Project Structure
+
+```text
+weather-safety-bot/
+│
+├── .env.example
+├── .gitignore
+├── requirements.txt
+├── README.md
+│
+├── policies/
+│   ├── taxonomy.yaml
+│   ├── metrics.yaml
+│   ├── defaults.yaml
+│   │
+│   └── sops/
+│       ├── travel.yaml
+│       ├── exercise.yaml
+│       ├── leisure.yaml
+│       ├── vulnerable_groups.yaml
+│       └── hazards.yaml
+│
+├── src/
+│   ├── engine_types.py
+│   ├── engine_loader.py
+│   ├── policy_engine.py
+│   ├── weather.py
+│   └── agent.py
+│
+├── app.py
+└── eval.py
+```
+
+### Responsibility Breakdown
+
+```text
+policies/
+    ↓
+"What rules should the system follow?"
+
+src/engine_loader.py
+    ↓
+"How are policies loaded and validated?"
+
+src/policy_engine.py
+    ↓
+"How are loaded policies evaluated?"
+
+src/weather.py
+    ↓
+"How do we obtain live weather data?"
+
+src/agent.py
+    ↓
+"How do we orchestrate intent, weather,
+ policy evaluation and response generation?"
+
+eval.py
+    ↓
+"Does the system behave correctly?"
+
+app.py
+    ↓
+"How does the user interact with the system?"
+
+README.md
+    ↓
+"What did we build and why?"
+```
+
+---
+
+# ▶️ 10. Running the Project
+
+Install dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+Create your environment file:
+
+```bash
+cp .env.example .env
+```
+
+Add the required Gemini API configuration to `.env`.
+
+Run the Streamlit application:
+
+```bash
+streamlit run app.py
+```
+
+Run the evaluation suite:
+
+```bash
+python eval.py
+```
+
+---
+
+# 🏗️ 11. Architecture Summary
+
+The complete system can be summarized as:
+
+```text
+                         ┌──────────────────────┐
+                         │        User          │
+                         └──────────┬───────────┘
+                                    │
+                                    ▼
+                         ┌──────────────────────┐
+                         │  LangGraph Agent     │
+                         │                      │
+                         │ Intent + Context     │
+                         │ City / Activity      │
+                         │ Modifier / Time      │
+                         └──────────┬───────────┘
+                                    │
+                                    ▼
+                         ┌──────────────────────┐
+                         │    Open-Meteo API    │
+                         │                      │
+                         │ Current / Forecast   │
+                         └──────────┬───────────┘
+                                    │
+                                    ▼
+                         ┌──────────────────────┐
+                         │  Deterministic       │
+                         │   Policy Engine      │
+                         │                      │
+                         │ Metric Binning       │
+                         │ SOP Matching         │
+                         │ Condition Evaluation │
+                         │ Severity Resolution  │
+                         └──────────┬───────────┘
+                                    │
+                                    ▼
+                         ┌──────────────────────┐
+                         │   Safety Decision    │
+                         │                      │
+                         │ RECOMMEND             │
+                         │ ALLOW_WITH_CAUTION    │
+                         │ ALLOW_WITH_LIMIT      │
+                         │ DO_NOT_RECOMMEND      │
+                         └──────────┬───────────┘
+                                    │
+                                    ▼
+                         ┌──────────────────────┐
+                         │   Gemini via         │
+                         │      LangChain       │
+                         │                      │
+                         │ Natural Language     │
+                         │ Explanation          │
+                         └──────────┬───────────┘
+                                    │
+                                    ▼
+                         ┌──────────────────────┐
+                         │     Streamlit UI     │
+                         └──────────────────────┘
+```
+
+The key architectural boundary is:
+
+```text
+                PROBABILISTIC                  DETERMINISTIC
+
+User Input ──→ LLM Intent ──→ Weather ──→ Policy Engine ──→ Decision
+                  │                              │
+                  │                              │
+                  └──────────────────────────────┘
+                         LLM communicates
+                         the final result
+```
+
+**The LLM interprets and communicates; the policy engine decides.**
+
+---
+
+# 📌 12. Key Takeaways
+
+This Weather Safety Advisory Agent demonstrates a **production-oriented architecture** for building reliable AI applications where deterministic business or safety rules must remain separate from probabilistic language-model behavior.
+
+The implementation focuses on:
+
+* Deterministic policy evaluation
+* Version-controlled YAML SOPs
+* Activity-specific safety rules
+* Vulnerability-aware policy modifiers
+* Live weather grounding
+* Time-aware current and forecast weather
+* Explicit unsupported-case handling
+* API failure handling
+* Multi-SOP evaluation
+* Policy traceability and citations
+* LangGraph-based stateful orchestration
+* Session-level conversation memory
+* Protection against direct prompt manipulation of safety decisions
+
+The central design principle is simple:
+
+> **The LLM interprets and communicates; the policy engine decides.**
+
+This separation makes the system easier to audit, test, extend, and reason about while keeping safety-critical decisions outside the language model.
+
+---
+
+# 👨‍💻 Author
+
+**Shakshyam Pandey**
+
+B.Tech IT Final Year
+IIIT Bhopal
+
+Gmail: shakshyampandey23@gmail.com
+
+LinkedIn:www.linkedin.com/in/shakshyam

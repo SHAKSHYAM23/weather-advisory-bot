@@ -35,3 +35,21 @@ rules:
     when:
       - metric: temperature
         in: [HOT, EXTREME_HEAT]
+
+  - id: TRAV-CAR-UV-01
+    decision: ALLOW_WITH_CAUTION
+    advice: "Very high UV. The car trip itself is fine; use sunscreen and sunglasses for any time spent outside the vehicle."
+    applies_to:
+      activities: [driving]
+    when:
+      - metric: uv_index
+        in: [VERY_HIGH, EXTREME]
+
+  - id: TRAV-OPEN-UV-01
+    decision: ALLOW_WITH_CAUTION
+    advice: "High UV on an open-air commute. Wear sunscreen, sunglasses and a hat, and keep to shaded routes where possible."
+    applies_to:
+      activities: [walking_commute, cycling_commute, two_wheeler]
+    when:
+      - metric: uv_index
+        in: [HIGH, VERY_HIGH, EXTREME]

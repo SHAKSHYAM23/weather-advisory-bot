@@ -1,4 +1,3 @@
-
 import yaml
 from pathlib import Path
 from typing import Any
@@ -60,6 +59,9 @@ def load_policies(policy_dir: str | Path) -> PolicyBook:
             where = f"{path.name}:{rid or '<no id>'}"
             if not rid:
                 errors.append(f"{where}: missing id")
+                continue
+            if rid in seen:
+                errors.append(f"{where}: duplicate rule id (also in {seen[rid]})")
                 continue
             seen[rid] = path.name
 

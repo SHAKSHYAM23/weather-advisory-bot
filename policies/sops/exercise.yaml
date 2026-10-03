@@ -38,6 +38,7 @@ rules:
       - metric: temperature
         in: [EXTREME_HEAT]
 
+  # UV ladder for exercise: HIGH -> precautions, VERY_HIGH -> limits, EXTREME -> do not go
   - id: EXER-UV-HIGH-01
     decision: ALLOW_WITH_CAUTION
     advice: "High UV radiation. Apply broad-spectrum SPF 30+ sunscreen, wear UV-blocking sunglasses, and seek shade."
@@ -45,4 +46,22 @@ rules:
       categories: [exercise]
     when:
       - metric: uv_index
-        in: [HIGH, VERY_HIGH]
+        in: [HIGH]
+
+  - id: EXER-UV-VERYHIGH-01
+    decision: ALLOW_WITH_LIMIT
+    advice: "Very high UV radiation. Avoid the 10am-4pm window, keep sessions short, wear SPF 50+, a hat and sunglasses, and stay in shade."
+    applies_to:
+      categories: [exercise]
+    when:
+      - metric: uv_index
+        in: [VERY_HIGH]
+
+  - id: EXER-UV-EXTREME-01
+    decision: DO_NOT_RECOMMEND
+    advice: "Extreme UV radiation causes rapid skin and eye damage. Postpone outdoor exercise to early morning or evening."
+    applies_to:
+      categories: [exercise]
+    when:
+      - metric: uv_index
+        in: [EXTREME]

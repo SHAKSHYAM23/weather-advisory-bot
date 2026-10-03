@@ -116,8 +116,10 @@ def run_tests():
         assert r6a["city"] == "Bhopal"
         assert r6a["activity"] == "two_wheeler"
 
+        # The user must actually name the city: the agent never accepts a city
+        # the user did not type (prevents invented locations skipping clarification).
         r6b = agent_module.classify_intent_node(
-            make_state("Is it a good idea to sit outside in a park and have a picnic?")
+            make_state("Is it a good idea to sit outside in a park in Indore and have a picnic?")
         )
         assert r6b["city"] == "Indore"
         assert r6b["activity"] == "picnic"
@@ -245,7 +247,9 @@ def run_tests():
             "locations currently had severe conditions."
         )
 
-print("\nAll 9 evaluation cases completed successfully.")
+   
+    print("\nAll 9 evaluation cases completed successfully.")
+
 
 if __name__ == "__main__":
     run_tests()
