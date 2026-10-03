@@ -53,3 +53,12 @@ rules:
     when:
       - metric: uv_index
         in: [HIGH, VERY_HIGH, EXTREME]
+
+  - id: TRAV-WALK-HEAT-02
+    decision: ALLOW_WITH_LIMIT
+    advice: "High heat conditions detected. Keep a moderate pace, stay in shaded areas, and carry plenty of water."
+    applies_to:
+      activities: [walking_commute, cycling, cycling_commute] 
+    when:
+      - metric: temperature
+        in: [HOT, EXTREME_HEAT]

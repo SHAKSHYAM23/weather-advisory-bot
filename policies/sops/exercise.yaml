@@ -22,7 +22,7 @@ rules:
     decision: ALLOW_WITH_LIMIT
     advice: "Elevated temperature and humidity increase thermal strain. Reduce training volume by 50% and avoid midday hours."
     applies_to:
-      activities: [running, outdoor_sports]
+      activities: [exercise, running, outdoor_sports]
     when:
       - metric: temperature
         in: [HOT]
@@ -33,7 +33,7 @@ rules:
     decision: DO_NOT_RECOMMEND
     advice: "Extreme heat creates severe heat stroke risk during intense cardio. Outdoor running is not recommended."
     applies_to:
-      activities: [running, outdoor_sports]
+      activities: [exercise, running, outdoor_sports]
     when:
       - metric: temperature
         in: [EXTREME_HEAT]

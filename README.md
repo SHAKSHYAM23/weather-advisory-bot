@@ -2,7 +2,7 @@
 
 A weather safety agent should not treat every outdoor activity the same way.
 
-For example, a moderate UV index may still be acceptable for someone travelling in an enclosed car, while the same condition can require additional precautions for someone walking outdoors. Similarly, high wind can have very different implications for a cyclist, a two-wheeler rider, or someone travelling in a car.
+For example, at a very high UV index a car trip is still fine (with a sunscreen note), while the same UV level means strict limits for someone running or walking outdoors. Similarly, high wind can have very different implications for a cyclist, a two-wheeler rider, or someone travelling in a car.
 
 This is the principle behind this implementation: safety recommendations are determined by the combination of the user's activity, weather conditions, and relevant context — rather than by a single generic weather threshold.
 
@@ -10,15 +10,16 @@ This is the principle behind this implementation: safety recommendations are det
 
 The system goes beyond a basic weather-to-recommendation mapping by introducing a structured policy and SOP framework:
 
-* **16 Core SOPs:** Covering activity-specific, weather-specific, hazard, and vulnerability scenarios.
+* **20 SOPs:** Covering activity-specific, weather-specific, hazard, and vulnerability scenarios, plus 3 baseline policies. New SOPs are plain YAML — no control-flow changes needed.
 * **Activity Classification:** Activities are organized into Travel, Exercise, and Leisure groups, allowing different rules to apply to different types of outdoor activities.
 * **Vulnerability Modifiers:** Supports children, elderly users, and pets, allowing the same environmental conditions to be evaluated differently based on context.
 * **Weather Metric Binning:** Continuous weather data is converted into defined severity bands for temperature, wind speed, humidity, precipitation, and UV index before policy evaluation.
 * **Severity-Based Recommendations:** The engine goes beyond a binary yes/no response with four levels: `RECOMMEND`, `ALLOW_WITH_CAUTION`, `ALLOW_WITH_LIMIT`, and `DO_NOT_RECOMMEND`.
 * **Multi-SOP Evaluation:** Multiple applicable SOPs can be evaluated together, with the policy engine resolving which conditions and rules determine the final recommendation.
-* **Time-Aware Weather:** Current conditions are used for "now" requests, while appropriate hourly forecast data is used for requests such as tomorrow morning or this evening.
+* **Time-Aware Weather:** Current conditions are used for "now" requests, while the hourly forecast is used for natural-language times such as "this evening", "tonight" or a clock time like "6 PM". **The agent evaluates today only**; tomorrow and other days are declined, never guessed.
+* **Clear Verdicts:** Every answer starts with a code-chosen verdict (🚫 not recommended / ⚠️ only within limits / 🟡 go with precautions / ✅ good to go) followed by the cited SOPs and the exact weather values used.
 * **Safe Fallbacks:** Unsupported activity-condition combinations and insufficient weather data are handled explicitly instead of generating unsupported safety guidance.
-* **Session Memory:** Conversation context such as city, activity, modifiers, and timing is preserved within a session using LangGraph checkpointing.
+* **Session Memory:** City, activity, who is coming (children/elderly/pets) and the time window are remembered within a chat session using LangGraph checkpointing. Each browser session gets its own random session id, so a refresh, a new visitor or the **New chat** button starts clean.
 * **9-Case Evaluation Suite:** Tests direct rule matching, paraphrased intent, multi-condition scenarios, hazard precedence, vulnerable groups, missing data, unsupported coverage, adversarial inputs, and live API grounding.
 
 At the core of the implementation is a strict separation between understanding the user's request and making the safety decision:
@@ -100,11 +101,14 @@ flowchart TD
 messages
 city
 activity
+category
 modifiers
-day
-period
+day            # always "today"
+period         # now | morning | afternoon | evening | night
+hour           # set only for explicit clock times (0-23)
 off_topic
 clarification_needed
+clarify_msg
 api_failed
 weather
 decision_payload
@@ -114,12 +118,12 @@ citations
 
 ### Node Responsibilities
 
-* **`classify_intent_node`**: Uses Gemini via LangChain to extract `city`, `activity`, `modifiers`, `day`, and `period`. It preserves previously extracted valid information across turns using session state and applies deterministic fallback extraction when necessary. It also detects off-topic requests and determines whether clarification is required.
-* **`ask_clarification_node`**: Requests missing information such as city or activity instead of making an unsupported recommendation.
-* **`fetch_weather_node`**: Retrieves weather from Open-Meteo. Current weather is used for immediate requests, while hourly forecast data is used when the user asks about a future period such as tomorrow morning or this evening.
+* **`classify_intent_node`**: Uses Gemini via LangChain to extract `city`, `activity`, `modifiers`, `day`, and `period`, with a deterministic regex layer (activity synonyms from `taxonomy.yaml`, city, kid/elderly/pet words, time phrases such as "6 PM" or "tonight") that always runs alongside it. It preserves earlier information across turns, resets per-turn results, and applies guards: a city is accepted only if the user typed it; "exercise" / "workout" / "fitness" resolve to the real `exercise` activity, while a vague word like "travelling" is stored as a `category` and never guessed into an activity; a reply to our own question is never treated as off-topic; any day other than today (tomorrow, weekend, next week) is declined with a today-only message and no weather lookup.
+* **`ask_clarification_node`**: Asks only for what is missing and echoes what is already known (e.g. "Got it (exercise, with children) — which city and which exercise activity?"), instead of making an unsupported recommendation. It also answers off-topic and unsupported-time messages.
+* **`fetch_weather_node`**: Retrieves weather from Open-Meteo. Current weather is used for "now" requests, while today's hourly forecast is used for a requested period (morning/afternoon/evening/night) or an explicit clock time such as 6 PM. Tomorrow and other days are not fetched.
 * **`evaluate_policy_node`**: Runs the **deterministic policy engine** against weather, activity, modifiers, metric bands, and YAML SOPs. **No LLM is involved in this decision.**
 * **`handle_api_failure_node`**: Returns a safe, controlled fallback when the weather service fails or reliable weather data cannot be retrieved.
-* **`generate_response_node`**: Converts the policy decision into natural language. The LLM must preserve the deterministic decision and must not invent additional safety rules or weather values.
+* **`generate_response_node`**: Converts the structured policy decision into natural language. The final reply is a code-chosen verdict banner, a short LLM explanation, and a deterministic block listing the understood request, every fired SOP with its advice, and the weather values used. If the LLM text omits an SOP or the LLM is unavailable, the deterministic text is used instead.
 
 ### Framework Responsibilities
 
@@ -158,6 +162,26 @@ Natural Language Response
 
 ---
 
+# 🕒 Time-Aware Weather & Session Memory
+
+**Today is the default.** The agent never asks "which day?". `fetch_weather_node` calls `get_weather_for_location(city, "today", period, hour)`:
+
+| User says | period | hour | Weather used |
+| :--- | :--- | :--- | :--- |
+| nothing, "now", "currently" | now | — | Open-Meteo **current** conditions |
+| "this morning" | morning (05:00–11:59) | — | Today's hourly forecast, window |
+| "this afternoon" | afternoon (12:00–16:59) | — | Today's hourly forecast, window |
+| "this evening" | evening (17:00–20:59) | — | Today's hourly forecast, window |
+| "tonight", "late night" | night (21:00–04:59) | — | Today's hourly forecast, 21:00–23:59 |
+| "4 PM", "18:00", "around 5:30 PM" | mapped from the clock time | nearest whole hour | **That hour's** hourly forecast |
+| "tomorrow", "this weekend", "next week", a weekday | — | — | **Declined**: "I currently check today's conditions only — please tell me a time today." No lookup is made and the day is never silently changed to today |
+
+Clock-time mapping: 05:00–11:59 morning · 12:00–16:59 afternoon · 17:00–20:59 evening · 21:00–04:59 night. For a window, **temperature and humidity use the average; precipitation, wind and UV use the maximum; a thunderstorm in any hour counts.** Every answer states what was evaluated ("today / afternoon", "today around 6 PM"). A new request with no time means *today / now*; a pure follow-up ("what about 6 pm?") or an answer to our question keeps the time already discussed. If the forecast cannot be fetched the bot says so and never guesses.
+
+**Session memory.** Memory is a LangGraph `MemorySaver` keyed by `thread_id`. `app.py` creates one random id per browser session (`uuid4`, stored in `st.session_state`). In the same tab the agent keeps city, activity, group and time, so "What about this evening?" or "make it around 8 am" changes only the time. Per-turn results (weather, decision, citations) are cleared at the start of every turn, and switching to a different activity resets the group (a pet from a dog walk does not follow you into a driving question).
+
+---
+
 # 🌦️ Weather & Activity Recommendation Engine
 
 This engine evaluates weather metrics against safety thresholds to generate actionable recommendations for outdoor activities. Rather than mapping every individual activity independently, the system categorizes intents and applies specific safety rules based on environmental conditions and vulnerable groups.
@@ -171,8 +195,10 @@ Activities are grouped into distinct categories to streamline rule application.
 | Category       | Description                               | Supported Activities                                                                                                                           |
 | :------------- | :---------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------- |
 | **`Travel`**   | Transportation and commuting              | Car/Enclosed Vehicle (`driving`), Motorcycle/Scooter (`two_wheeler`), Walking Commute (`walking_commute`), Bicycle Commute (`cycling_commute`) |
-| **`Exercise`** | Physical outdoor exertion                 | Recreational Cycling (`cycling`), Running/Jogging (`running`), Fitness Walking (`walking`), Team/Field Sports (`outdoor_sports`)               |
+| **`Exercise`** | Physical outdoor exertion                 | General Exercise/Workout (`exercise`), Recreational Cycling (`cycling`), Running/Jogging (`running`), Fitness Walking (`walking`), Team/Field Sports (`outdoor_sports`)               |
 | **`Leisure`**  | Low-exertion outdoor activities and tasks | Outdoor Picnic (`picnic`), Patio/Outdoor Dining (`outdoor_dining`), Dog Walking (`dog_walking`), Drying Laundry (`laundry`)                    |
+
+Everyday words map to activities through `synonyms:` lists in `policies/taxonomy.yaml` (e.g. "bike" → `two_wheeler`, "bicycle" → `cycling`, "run" → `running`, "workout" / "fitness" → `exercise`); adding a synonym needs no code change. If the user gives only a vague plan ("travelling"), the bot asks which activity in that category.
 
 ### Context Modifiers
 
@@ -242,8 +268,8 @@ Raw continuous weather variables are processed through a `bin_metrics()` layer t
 
 ### Weather Flags
 
-* **`thunderstorm_active`**: Indicates an active thunderstorm or lightning-related weather condition available from the weather data source.
-* **`regional_rain_system`**: Operational rainfall-system indicator used by the policy engine to represent broader rainfall hazards based on available weather data.
+* **`thunderstorm_active`**: Derived from the Open-Meteo WMO weather code (95, 96, 99) for the requested time.
+* **`regional_rain_system`**: A **proxy** derived from Open-Meteo precipitation (more than 10 mm in the period), used to represent broader rainfall hazards. Open-Meteo does not provide an official low-pressure-system alert.
 
 These flags are evaluated by the deterministic policy engine and are not generated by the LLM.
 
@@ -260,26 +286,34 @@ The policy engine uses four recommendation levels:
 
 # 📋 4. Standard Operating Procedures (SOPs)
 
-The engine evaluates conditions against **16 foundational Standard Operating Procedures** across activity-specific, weather-specific, hazard, and vulnerability scenarios.
+The engine evaluates conditions against **20 Standard Operating Procedures** (one YAML file per category in `policies/sops/`) across activity-specific, weather-specific, hazard, and vulnerability scenarios.
 
 ### Core SOPs
 
-1. **Moderate Wind Cycling**
-2. **High Wind Cycling**
-3. **Elevated Heat Running**
-4. **Extreme Heat Running**
-5. **High UV Radiation**
-6. **Regional Rain Systems**
-7. **Severe Thunderstorms & Lightning**
-8. **Muggy Leisure Conditions**
-9. **Chilly Dining Conditions**
-10. **Two-Wheeler Rain Hazards**
-11. **Two-Wheeler Wind Hazards**
-12. **Driving Wind Cautions**
-13. **Walking Commute Heat**
-14. **Child UV Vulnerability**
-15. **Elderly Heat Vulnerability**
-16. **Pet Heat Vulnerability**
+| # | SOP | Id | Applies to | Decision |
+| :-- | :--- | :--- | :--- | :--- |
+| 1 | Moderate Wind Cycling | `EXER-CYCLE-WIND-01` | cycling, cycling_commute | `ALLOW_WITH_CAUTION` |
+| 2 | High Wind Cycling | `EXER-CYCLE-WIND-02` | cycling, cycling_commute | `DO_NOT_RECOMMEND` |
+| 3 | Elevated Heat Running | `EXER-RUN-HEAT-01` | exercise, running, outdoor_sports | `ALLOW_WITH_LIMIT` |
+| 4 | Extreme Heat Running | `EXER-RUN-HEAT-02` | exercise, running, outdoor_sports | `DO_NOT_RECOMMEND` |
+| 5 | High UV Radiation | `EXER-UV-HIGH-01` | all Exercise | `ALLOW_WITH_CAUTION` |
+| 6 | Very High UV Radiation | `EXER-UV-VERYHIGH-01` | all Exercise | `ALLOW_WITH_LIMIT` |
+| 7 | Extreme UV Radiation | `EXER-UV-EXTREME-01` | all Exercise | `DO_NOT_RECOMMEND` |
+| 8 | Regional Rain Systems (lead) | `HAZ-REGIONAL-SYSTEM-01` | any activity | `DO_NOT_RECOMMEND` |
+| 9 | Severe Thunderstorms & Lightning (lead) | `HAZ-THUNDERSTORM-01` | any activity | `DO_NOT_RECOMMEND` |
+| 10 | Muggy Leisure Conditions | `FUZZY-PICNIC-MUGGY-01` | picnic | `ALLOW_WITH_CAUTION` |
+| 11 | Chilly Dining Conditions | `FUZZY-DINING-CHILLY-01` | outdoor_dining | `ALLOW_WITH_LIMIT` |
+| 12 | Two-Wheeler Rain Hazards | `TRAV-2W-RAIN-01` | two_wheeler | `DO_NOT_RECOMMEND` |
+| 13 | Two-Wheeler Wind Hazards | `TRAV-2W-WIND-01` | two_wheeler | `DO_NOT_RECOMMEND` |
+| 14 | Driving Wind Cautions | `TRAV-CAR-WIND-01` | driving | `ALLOW_WITH_CAUTION` |
+| 15 | Walking Commute Heat | `TRAV-WALK-HEAT-01` | walking_commute | `ALLOW_WITH_LIMIT` |
+| 16 | Driving UV Note (trip is fine; protect outside the car) | `TRAV-CAR-UV-01` | driving | `ALLOW_WITH_CAUTION` |
+| 17 | Open-Air Commute UV | `TRAV-OPEN-UV-01` | walking_commute, cycling_commute, two_wheeler | `ALLOW_WITH_CAUTION` |
+| 18 | Child UV Vulnerability | `VULN-CHILD-UV-01` | Exercise & Leisure + children | `ALLOW_WITH_LIMIT` |
+| 19 | Elderly Heat Vulnerability | `VULN-ELDERLY-HEAT-01` | any activity + elderly | `DO_NOT_RECOMMEND` |
+| 20 | Pet Heat Vulnerability | `VULN-PET-HEAT-01` | dog_walking, walking + pets | `ALLOW_WITH_LIMIT` |
+
+An activity counts as *covered* when at least one non-fuzzy rule is scoped to it, to its category, or to an active modifier. Clear weather on a covered activity returns `BASE-CLEAR`; otherwise `BASE-NO-COVERAGE`.
 
 ### Baseline SOPs
 
@@ -334,6 +368,8 @@ The evaluation suite contains **9 cases** covering direct matching, paraphrased 
 | **7** | Elderly walking in heat                    | `VULN-ELDERLY-HEAT-01` (`DO_NOT_RECOMMEND`)      | **Dynamic Adaptation:** Applies stricter safety rules for vulnerable users.                                                                                                   |
 | **8** | Dog walking with pets                      | `VULN-PET-HEAT-01` (`ALLOW_WITH_LIMIT`)          | **Granular Binding:** Enforces activity- and modifier-specific safety rules.                                                                                                  |
 | **9** | Live weather API grounding                 | Decision and SOP citation based on live API data | **Live Data Grounding:** Evaluates real weather values without hardcoding or fabricating severe conditions.                                                                   |
+
+> **Case 6 note:** the city must be typed by the user (e.g. "…in a park in Indore…"). The agent deliberately rejects a city the language model produced but the user never wrote, so an invented location can never skip the "which city?" question.
 
 ### Evaluation Requirements Covered
 
@@ -612,6 +648,17 @@ User Input ──→ LLM Intent ──→ Weather ──→ Policy Engine ──
 ```
 
 **The LLM interprets and communicates; the policy engine decides.**
+
+---
+
+# ⚠️ Known Limitations
+
+* Only **today** is evaluated; tomorrow and other days are declined, not guessed.
+* A time window (morning/afternoon/evening/night) is summarised (average temperature/humidity; maximum precipitation, wind and UV); an explicit clock time uses that single hour.
+* `regional_rain_system` is a precipitation-based proxy, not an official alert.
+* Geocoding uses the first Open-Meteo match for the city name.
+* Only the supported activities are covered; anything else (e.g. "a trip to the park") triggers a clarification question rather than a guess.
+* Session memory lives in the server process (`MemorySaver`) and is lost on restart.
 
 ---
 

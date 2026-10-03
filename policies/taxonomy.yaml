@@ -18,12 +18,15 @@ categories:
   exercise:
     description: "Physical outdoor exertion"
     activities:
+      - id: exercise
+        name: "General Exercise / Workout"
+        synonyms: [exercising, workout, work out, working out, fitness, training, do a workout]
       - id: cycling
         name: "Recreational Cycling"
         synonyms: [cycle, bicycle, cycling]
       - id: running
         name: "Running or Jogging"
-        synonyms: [jogging, jog, go for a run]
+        synonyms: [run, jogging, jog, go for a run]
       - id: walking
         name: "Fitness Walking"
         synonyms: [walk, stroll, go for a walk]
