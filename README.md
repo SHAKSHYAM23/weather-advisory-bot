@@ -49,7 +49,7 @@ Natural Language Response
 
 # 🚀 Live Demo
 
-Open the Weather Safety Advisory Agent using the live deployment linked in the project repository.
+Open the Weather Safety Advisory Agent https://shakshyamproject.streamlit.app/
 
 ---
 
