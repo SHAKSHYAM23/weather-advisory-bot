@@ -287,8 +287,7 @@ def classify_intent_node(state: AgentState):
         print("[classify_intent_node] LLM ERROR (falling back to regex):", repr(e))
         traceback.print_exc()
 
-    # GROUNDING GUARD: a city is only accepted if the user actually typed it.
-    # (Stops a model from inventing a city and skipping the clarification question.)
+  
     if c_city and c_city.lower() not in all_user_text(state):
         print(f"[classify_intent_node] dropping ungrounded city {c_city!r}")
         c_city = None
@@ -300,10 +299,10 @@ def classify_intent_node(state: AgentState):
     c_mods = sorted(set(c_mods + f_mods))
     c_day, c_period = c_day or f_day, c_period or f_period
 
-    # Were we just waiting for the user to answer a clarification question?
+   
     pending = bool(state.get("clarification_needed")) and not state.get("off_topic")
 
-    # A bare 1-2 word reply to "which city?" is the city (only when it is clearly not something else).
+
     if pending and not state.get("city") and not c_city:
         words = re.sub(r"[^a-zA-Z\s]", " ", msg).split()
         if (1 <= len(words) <= 2 and not any(w.lower() in CITY_STOP or w.lower() in TIME_WORDS for w in words)
@@ -312,10 +311,10 @@ def classify_intent_node(state: AgentState):
 
     slots_found = any([c_city, c_act, c_mods, c_day, c_period])
     hint = bool(OUTDOOR_HINT.search(msg.lower()))
-    # A reply to our own question is never "off topic": we just re-ask instead.
+   
     relevant = slots_found or pending or (llm_relevant if llm_relevant is not None else hint)
 
-    # Always wipe the previous turn's results so nothing stale leaks into this turn.
+   
     reset = {"api_failed": False, "weather": None, "decision_summary": None,
              "decision_payload": None, "citations": []}
 
@@ -327,11 +326,11 @@ def classify_intent_node(state: AgentState):
     final_city = c_city or state.get("city")
     final_act = c_act or prev_act
     past_mods = state.get("modifiers") or []
-    # switching from one activity to a DIFFERENT one starts a fresh group; first activity / same activity keeps it
+    
     final_mods = c_mods if (c_act and prev_act and c_act != prev_act) else sorted(set(past_mods + c_mods))
     final_day = c_day or state.get("day") or "today"
     if c_day and not c_period:
-        final_period = "now"  # explicit day, no period: "today" = current, "tomorrow" = all-day (weather.py)
+        final_period = "now" 
     else:
         final_period = c_period or state.get("period") or "now"
 
@@ -368,7 +367,7 @@ def fetch_weather_node(state: AgentState):
     try:
         day, period = state.get("day") or "today", state.get("period") or "now"
         if day == "today" and period == "now":
-            weather_data = get_weather_for_location(state["city"])  # original current-weather call
+            weather_data = get_weather_for_location(state["city"]) 
         else:
             weather_data = get_weather_for_location(state["city"], day, period)
     except Exception as e:
@@ -475,7 +474,7 @@ def generate_response_node(state: AgentState):
         print("[generate_response_node] LLM ERROR:", repr(e))
         traceback.print_exc()
 
-    # Guard: the prose must cite every SOP the engine used; otherwise discard it.
+    
     if not text or not all(s["id"] in text for s in p["sops"]):
         return {"messages": [AIMessage(content=f"{verdict}\n\n{basis}")]}
     return {"messages": [AIMessage(content=f"{verdict}\n\n{text}\n\n---\n{basis}")]}

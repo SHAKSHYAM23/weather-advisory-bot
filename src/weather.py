@@ -4,7 +4,7 @@ from typing import Optional, Dict, Any
 GEO_URL = "https://geocoding-api.open-meteo.com/v1/search"
 FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 VARS = "temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m,uv_index,weather_code"
-# Local-hour windows for hourly requests (end exclusive).
+
 PERIODS = {
     "morning": range(6, 12), "afternoon": range(12, 17),
     "evening": range(17, 21), "night": range(21, 24), "day": range(6, 22),
@@ -34,7 +34,7 @@ def _build(temp, hum, precip, wind, uv, codes, location, when) -> Dict[str, Any]
         "wind_speed": wind,
         "uv_index": uv,
         "thunderstorm_active": any(c in THUNDER_CODES for c in _vals(codes)),
-        "regional_rain_system": (precip or 0) > 10.0,  # proxy: >10 mm precipitation
+        "regional_rain_system": (precip or 0) > 10.0,
         "location": location,
         "when": when,
     }
